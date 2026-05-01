@@ -1,0 +1,61 @@
+import torch
+import cv2
+import numpy as np
+from pathlib import Path
+
+from models.fusion_model import DeepfakeFusionModel
+
+# --------------------------------------------------
+# CONFIG
+# --------------------------------------------------
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+CHECKPOINT = "checkpoints/images/image_model_best.pth"
+IMG_SIZE = 224
+
+
+# --------------------------------------------------
+# IMAGE PREPROCESS
+# --------------------------------------------------
+def load_image(path):
+    img = cv2.imread(str(path))
+    if img is None:
+        raise RuntimeError(f"Cannot read image: {path}")
+
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
+    img = img / 255.0
+    img = np.transpose(img, (2, 0, 1))  # HWC → CHW
+
+    return torch.tensor(img, dtype=torch.float32).unsqueeze(0)
+
+
+# --------------------------------------------------
+# PREDICT
+# --------------------------------------------------
+@torch.no_grad()
+def predict_image(image_path):
+    image_path = Path(image_path)
+
+    model = DeepfakeFusionModel().to(DEVICE)
+    ckpt = torch.load(CHECKPOINT, map_location=DEVICE)
+    model.load_state_dict(ckpt["model_state"])
+    model.eval()
+
+    # ⚠️ TEMP: reuse RGB image for all inputs
+    img = load_image(image_path).to(DEVICE)
+
+    logits = model(
+        img,   # full image
+        img,   # face (temporary)
+        img[:, :1],  # freq
+        img[:, :1],  # color
+        img[:, :1],  # edge
+        img[:, :1],  # texture
+    )
+
+    prob = torch.sigmoid(logits).item()
+
+    label = "FAKE" if prob >= 0.5 else "REAL"
+    confidence = prob if label == "FAKE" else 1 - prob
+
+    return label, confidence

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Deepfake Image Detection</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            width: 420px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            margin: 10px 0;
+        }
+
+        button {
+            background: #6c5ce7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background: #5a4bd1;
+        }
+
+        img {
+            max-width: 100%;
+            margin-top: 15px;
+            border-radius: 10px;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f2f6;
+            border-radius: 10px;
+        }
+
+        .real {
+            color: green;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .fake {
+            color: red;
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2>🧠 Deepfake Image Detection</h2>
+
+    <form method="POST" enctype="multipart/form-data">
+        <input type="file" name="image" accept="image/*" required>
+        <br>
+        <button type="submit">Predict</button>
+    </form>
+
+    {% if filename %}
+        <h3>Preview</h3>
+        <img src="{{ url_for('static', filename='uploads/' + filename) }}">
+    {% endif %}
+
+    {% if prediction %}
+        <div class="result">
+            <h3>Result</h3>
+
+            <span class="{{ 'fake' if prediction == 'FAKE' else 'real' }}">
+                {{ prediction }}
+            </span>
+        </div>
+    {% endif %}
+</div>
+
+</body>
+</html>
