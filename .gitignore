@@ -2,4 +2,9 @@ venv/
 __pycache__/
 *.pyc
 uploads/
-.env
+.idea/
+fake/
+real/
+Screenshots/
+training/
+evaluation/
