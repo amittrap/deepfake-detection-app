@@ -9,13 +9,16 @@ from models.fusion_model import DeepfakeFusionModel
 # CONFIG
 # --------------------------------------------------
 
-DEVICE = torch.device(
-    "cuda" if torch.cuda.is_available() else "cpu"
-)
+# Force CPU for deployment stability
+DEVICE = torch.device("cpu")
 
 CHECKPOINT = "checkpoints/images/image_model_best.pth"
 
-IMG_SIZE = 224
+# Reduced size for lower RAM usage
+IMG_SIZE = 160
+
+# Reduce CPU thread usage
+torch.set_num_threads(1)
 
 
 # --------------------------------------------------
@@ -36,27 +39,27 @@ def load_image(path):
         cv2.COLOR_BGR2RGB
     )
 
+    # Smaller image = faster inference
     img = cv2.resize(
         img,
         (IMG_SIZE, IMG_SIZE)
     )
 
-    img = img / 255.0
+    img = img.astype(np.float32) / 255.0
 
-    # HWC → CHW
+    # HWC -> CHW
     img = np.transpose(img, (2, 0, 1))
 
-    tensor = torch.tensor(
-        img,
-        dtype=torch.float32
-    ).unsqueeze(0)
+    tensor = torch.from_numpy(img).float().unsqueeze(0)
 
     return tensor
 
 
 # --------------------------------------------------
-# LOAD MODEL ONCE
+# LOAD MODEL ONLY ONCE
 # --------------------------------------------------
+
+print("Loading Deepfake Detection Model...")
 
 model = DeepfakeFusionModel().to(DEVICE)
 
@@ -71,6 +74,8 @@ model.load_state_dict(
 
 model.eval()
 
+print("Model Loaded Successfully")
+
 
 # --------------------------------------------------
 # PREDICT
@@ -79,22 +84,36 @@ model.eval()
 @torch.no_grad()
 def predict_image(image_path):
 
-    image_path = Path(image_path)
+    try:
 
-    img = load_image(image_path).to(DEVICE)
+        image_path = Path(image_path)
 
-    # Temporary reuse
-    logits = model(
-        img,          # full image
-        img,          # face
-        img[:, :1],   # freq
-        img[:, :1],   # color
-        img[:, :1],   # edge
-        img[:, :1],   # texture
-    )
+        img = load_image(image_path).to(DEVICE)
 
-    probability = torch.sigmoid(logits).item()
+        # Temporary feature reuse
+        logits = model(
+            img,          # full image
+            img,          # face
+            img[:, :1],   # frequency
+            img[:, :1],   # color
+            img[:, :1],   # edge
+            img[:, :1],   # texture
+        )
 
-    label = "FAKE" if probability >= 0.5 else "REAL"
+        probability = torch.sigmoid(
+            logits
+        ).item()
 
-    return label
+        label = (
+            "FAKE"
+            if probability >= 0.5
+            else "REAL"
+        )
+
+        return label
+
+    except Exception as e:
+
+        print(f"Inference Error: {e}")
+
+        return "ERROR"
